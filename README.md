@@ -72,6 +72,12 @@ docker/
 
 `SCOUT_DRIVER=meilisearch`, `MEILISEARCH_HOST=http://meilisearch:7700`. Индексация — `php artisan scout:import "App\\Models\\..."`.
 
+## Архитектура
+
+Слои DDD-lite: `Domain` (enum'ы, контракты) → `DTO` → `Infrastructure/Repositories` → `Models`.
+
+Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
 ## Связанные документы
 
 В корневой `kopeika/docs/` (общая директория проекта):
