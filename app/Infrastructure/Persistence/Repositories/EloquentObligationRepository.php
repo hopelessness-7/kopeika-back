@@ -24,14 +24,6 @@ final class EloquentObligationRepository implements ObligationRepositoryInterfac
             ->get();
     }
 
-    public function findForUser(int $userId, int $id): ?Obligation
-    {
-        return Obligation::query()
-            ->forUser($userId)
-            ->whereKey($id)
-            ->first();
-    }
-
     public function findForUserOrFail(int $userId, int $id): Obligation
     {
         return Obligation::query()

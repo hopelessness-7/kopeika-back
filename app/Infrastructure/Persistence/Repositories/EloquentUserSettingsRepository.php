@@ -9,11 +9,6 @@ use App\Models\UserSetting;
 
 final class EloquentUserSettingsRepository implements UserSettingsRepositoryInterface
 {
-    public function findByUserId(int $userId): ?UserSetting
-    {
-        return UserSetting::query()->where('user_id', $userId)->first();
-    }
-
     public function findOrCreateForUser(int $userId): UserSetting
     {
         return UserSetting::query()->firstOrCreate(

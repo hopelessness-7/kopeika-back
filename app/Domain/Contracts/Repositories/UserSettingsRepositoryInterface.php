@@ -7,8 +7,6 @@ use App\Models\UserSetting;
 
 interface UserSettingsRepositoryInterface
 {
-    public function findByUserId(int $userId): ?UserSetting;
-
     public function findOrCreateForUser(int $userId): UserSetting;
 
     public function upsert(UserSettingsData $data): UserSetting;

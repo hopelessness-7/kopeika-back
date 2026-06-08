@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CheckInController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\IncomeController;
 use App\Http\Controllers\Api\ObligationController;
+use App\Http\Controllers\Api\ObligationPaymentController;
 use App\Http\Controllers\Api\Reconciliation\BankImportController;
 use App\Http\Controllers\Api\Reconciliation\ReconciliationSettingsController;
 use App\Http\Controllers\Api\SavingController;
@@ -51,6 +52,14 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::apiResource('obligations', ObligationController::class);
+    Route::prefix('obligations/{obligation}')->group(function () {
+        Route::get('payments', [ObligationPaymentController::class, 'index']);
+        Route::post('payments', [ObligationPaymentController::class, 'store']);
+        Route::delete('payments/{payment}', [ObligationPaymentController::class, 'destroy']);
+        Route::post('close', [ObligationPaymentController::class, 'close']);
+        Route::post('reopen', [ObligationPaymentController::class, 'reopen']);
+    });
+
     Route::apiResource('incomes', IncomeController::class);
     Route::apiResource('savings', SavingController::class);
 });

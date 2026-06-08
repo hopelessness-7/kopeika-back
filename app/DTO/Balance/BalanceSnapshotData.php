@@ -3,14 +3,12 @@
 namespace App\DTO\Balance;
 
 use App\Domain\Enums\BalanceSnapshotSource;
-use App\DTO\Concerns\ArrayAccessible;
 use App\DTO\Concerns\MapsFromArray;
 use App\DTO\Contracts\DataTransferObject;
 use Carbon\CarbonInterface;
 
 readonly class BalanceSnapshotData implements DataTransferObject
 {
-    use ArrayAccessible;
     use MapsFromArray;
 
     public function __construct(

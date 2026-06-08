@@ -4,15 +4,12 @@ namespace App\DTO\Reconciliation;
 
 use App\Domain\Enums\ImportIntervalDays;
 use App\Domain\Enums\PrimaryAnchor;
-use App\DTO\Concerns\ArrayAccessible;
 use App\DTO\Concerns\MapsFromArray;
 use App\DTO\Contracts\DataTransferObject;
-use App\Models\ReconciliationSetting;
 use Carbon\CarbonInterface;
 
 readonly class ReconciliationSettingsData implements DataTransferObject
 {
-    use ArrayAccessible;
     use MapsFromArray;
 
     public function __construct(

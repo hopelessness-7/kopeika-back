@@ -18,14 +18,6 @@ final class EloquentSavingRepository implements SavingRepositoryInterface
             ->get();
     }
 
-    public function findForUser(int $userId, int $id): ?Saving
-    {
-        return Saving::query()
-            ->forUser($userId)
-            ->whereKey($id)
-            ->first();
-    }
-
     public function findForUserOrFail(int $userId, int $id): Saving
     {
         return Saving::query()

@@ -19,14 +19,6 @@ final class EloquentIncomeRepository implements IncomeRepositoryInterface
             ->get();
     }
 
-    public function findForUser(int $userId, int $id): ?Income
-    {
-        return Income::query()
-            ->forUser($userId)
-            ->whereKey($id)
-            ->first();
-    }
-
     public function findForUserOrFail(int $userId, int $id): Income
     {
         return Income::query()
@@ -50,5 +42,16 @@ final class EloquentIncomeRepository implements IncomeRepositoryInterface
     public function delete(Model $model): void
     {
         $model->delete();
+    }
+
+    public function listRecurringActiveForUser(int $userId): Collection
+    {
+        return Income::query()
+            ->forUser($userId)
+            ->where('is_recurring', true)
+            ->where('is_active', true)
+            ->whereNotNull('day_of_month')
+            ->orderBy('day_of_month')
+            ->get();
     }
 }

@@ -3,14 +3,12 @@
 namespace App\DTO\Obligation;
 
 use App\Domain\Enums\ObligationType;
-use App\DTO\Concerns\ArrayAccessible;
 use App\DTO\Concerns\MapsFromArray;
 use App\DTO\Contracts\DataTransferObject;
 use Carbon\CarbonInterface;
 
 readonly class ObligationData implements DataTransferObject
 {
-    use ArrayAccessible;
     use MapsFromArray;
 
     public function __construct(

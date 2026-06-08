@@ -15,6 +15,9 @@ class Income extends Model
         'description',
         'amount',
         'received_at',
+        'is_recurring',
+        'day_of_month',
+        'is_active',
     ];
 
     protected function casts(): array
@@ -22,6 +25,9 @@ class Income extends Model
         return [
             'amount' => 'decimal:2',
             'received_at' => 'date',
+            'is_recurring' => 'boolean',
+            'day_of_month' => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 }

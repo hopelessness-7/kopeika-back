@@ -2,13 +2,11 @@
 
 namespace App\DTO\Auth;
 
-use App\DTO\Concerns\ArrayAccessible;
 use App\DTO\Concerns\MapsFromArray;
 use App\DTO\Contracts\DataTransferObject;
 
 readonly class RegisterData implements DataTransferObject
 {
-    use ArrayAccessible;
     use MapsFromArray;
 
     public function __construct(

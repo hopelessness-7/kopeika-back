@@ -10,11 +10,6 @@ use App\Models\ReconciliationSetting;
 
 final class EloquentReconciliationSettingsRepository implements ReconciliationSettingsRepositoryInterface
 {
-    public function findByUserId(int $userId): ?ReconciliationSetting
-    {
-        return ReconciliationSetting::query()->where('user_id', $userId)->first();
-    }
-
     public function findOrCreateForUser(int $userId): ReconciliationSetting
     {
         return ReconciliationSetting::query()->firstOrCreate(

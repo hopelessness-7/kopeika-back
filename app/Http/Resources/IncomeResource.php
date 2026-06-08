@@ -17,6 +17,9 @@ class IncomeResource extends JsonResource
             'description' => $this->description,
             'amount' => Money::toApiNumber((string) $this->amount),
             'received_at' => $this->received_at->toDateString(),
+            'is_recurring' => (bool) $this->is_recurring,
+            'day_of_month' => $this->day_of_month,
+            'is_active' => (bool) $this->is_active,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

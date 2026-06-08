@@ -3,15 +3,12 @@
 namespace App\DTO\Settings;
 
 use App\Domain\Enums\NotificationMode;
-use App\DTO\Concerns\ArrayAccessible;
 use App\DTO\Concerns\MapsFromArray;
 use App\DTO\Contracts\DataTransferObject;
-use App\Models\UserSetting;
 use Carbon\CarbonInterface;
 
 readonly class UserSettingsData implements DataTransferObject
 {
-    use ArrayAccessible;
     use MapsFromArray;
 
     public function __construct(
@@ -26,15 +23,6 @@ readonly class UserSettingsData implements DataTransferObject
             userId: (int) $data['user_id'],
             lastCheckInAt: self::carbon($data, 'last_check_in_at'),
             notificationMode: self::enum($data, 'notification_mode', NotificationMode::class, NotificationMode::Normal),
-        );
-    }
-
-    public static function fromModel(UserSetting $settings): self
-    {
-        return new self(
-            userId: $settings->user_id,
-            lastCheckInAt: $settings->last_check_in_at,
-            notificationMode: $settings->notification_mode,
         );
     }
 
