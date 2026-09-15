@@ -48,6 +48,13 @@ cp .env.example .env
 ./vendor/bin/sail logs -f nginx
 ```
 
+Расписание (нужен `schedule:run` на проде):
+
+```bash
+./vendor/bin/sail artisan notifications:send-reminders   # вручную
+# Schedule::command(...)->dailyAt('09:00') — см. routes/console.php
+```
+
 ## Структура docker
 
 ```
@@ -66,22 +73,25 @@ docker/
 
 ## Telescope
 
-Доступен на `/telescope`. В `local` окружении — без авторизации (см. `app/Providers/TelescopeServiceProvider.php`). Для prod — добавить email в allow-list.
+Доступен на `/telescope`. В `local` окружении — без авторизации (см. `app/Providers/TelescopeServiceProvider.php`). Для prod — выключить или жёстко ограничить allow-list.
 
 ## Scout / Meilisearch
 
-`SCOUT_DRIVER=meilisearch`, `MEILISEARCH_HOST=http://meilisearch:7700`. Индексация — `php artisan scout:import "App\\Models\\..."`.
+`SCOUT_DRIVER=meilisearch`, `MEILISEARCH_HOST=http://meilisearch:7700`. Индексация — `php artisan scout:import "App\\Models\\..."`.  
+User-facing поиск по сущностям в продукте пока не используется.
 
 ## Архитектура
 
-Слои DDD-lite: `Domain` (enum'ы, контракты) → `DTO` → `Infrastructure/Repositories` → `Models`.
+Слои DDD-lite: `Domain` → `DTO` → `Application` (Finance + Services) → `Infrastructure` → `Http`.
 
-Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Готовность к prod MVP v1 (бэк): [docs/MVP.md](docs/MVP.md)
 
 ## Связанные документы
 
-В корневой `kopeika/docs/` (общая директория проекта):
+В корневой `kopeika/docs/` (общая директория проекта, **вне git** бэка/фронта):
 
-- `phase-0-spec.md`
-- `frontend-handoff.md` (для разработчика фронта)
-- `api-status.md` (статус эндпоинтов)
+- `STATUS.md` — актуальный статус продукта / API
+- `api-status.md` — таблица эндпоинтов
+- `phase-0-spec.md` — **историческая** спецификация (частично устарела: import / salary_day)
+- `frontend-handoff.md` — handoff для фронта (с пометкой устаревших разделов про импорт)
