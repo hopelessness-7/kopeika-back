@@ -47,12 +47,15 @@ class DashboardApiTest extends TestCase
                 'zone',
                 'free_after_obligations',
                 'anchors' => [
-                    'primary',
-                    'salary',
-                    'import',
+                    'primary_income_id',
+                    'items',
                 ],
                 'primary_daily_limit',
-                'obligations_until_salary_total',
+                'obligations_until_primary_anchor_total',
+                'goals' => [
+                    'active_count',
+                    'items',
+                ],
                 'forecast' => [
                     'horizon_until',
                     'next_income',
@@ -61,9 +64,8 @@ class DashboardApiTest extends TestCase
                     'timeline',
                 ],
                 'check_in_due',
-                'import_due',
-                'import_overdue',
                 'streak',
+                'notification_mode',
             ]);
 
         $this->assertContains($response->json('zone'), ['green', 'yellow', 'red']);
@@ -72,6 +74,22 @@ class DashboardApiTest extends TestCase
         $this->assertGreaterThan(0, $response->json('savings.summary.total_balance'));
         $this->assertNotEmpty($response->json('incomes.recent'));
         $this->assertNotEmpty($response->json('savings.accounts'));
+        $this->assertGreaterThanOrEqual(2, count($response->json('anchors.items')));
+    }
+
+    public function test_primary_daily_limit_uses_tightest_anchor(): void
+    {
+        $response = $this->getJson('/api/dashboard');
+        $response->assertOk();
+
+        $anchors = collect($response->json('anchors.items'));
+        $primaryId = $response->json('anchors.primary_income_id');
+        $primary = $anchors->firstWhere('income_id', $primaryId);
+
+        $this->assertNotNull($primary);
+        $minLimit = $anchors->min('daily_limit');
+        $this->assertSame($minLimit, $response->json('primary_daily_limit'));
+        $this->assertSame($minLimit, $primary['daily_limit']);
     }
 
     public function test_dashboard_skips_paid_obligation_due_dates(): void

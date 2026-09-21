@@ -19,12 +19,18 @@ readonly class IncomeData implements DataTransferObject
         public bool $isRecurring = false,
         public ?int $dayOfMonth = null,
         public bool $isActive = true,
+        public bool $isSpendingAnchor = false,
     ) {}
 
     public static function fromArray(array $data): static
     {
         $isRecurring = self::bool($data, 'is_recurring', false);
         $dayOfMonth = self::int($data, 'day_of_month');
+        $isSpendingAnchor = self::bool($data, 'is_spending_anchor', false);
+
+        if (! $isRecurring) {
+            $isSpendingAnchor = false;
+        }
 
         return new self(
             userId: (int) $data['user_id'],
@@ -35,6 +41,7 @@ readonly class IncomeData implements DataTransferObject
             isRecurring: $isRecurring,
             dayOfMonth: $isRecurring ? $dayOfMonth : null,
             isActive: self::bool($data, 'is_active', true),
+            isSpendingAnchor: $isSpendingAnchor,
         );
     }
 
@@ -48,6 +55,7 @@ readonly class IncomeData implements DataTransferObject
             'is_recurring' => $this->isRecurring,
             'day_of_month' => $this->dayOfMonth,
             'is_active' => $this->isActive,
+            'is_spending_anchor' => $this->isSpendingAnchor,
         ];
 
         if (! $forUpdate) {

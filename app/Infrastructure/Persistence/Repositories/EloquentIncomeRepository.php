@@ -54,4 +54,16 @@ final class EloquentIncomeRepository implements IncomeRepositoryInterface
             ->orderBy('day_of_month')
             ->get();
     }
+
+    public function listSpendingAnchorsForUser(int $userId): Collection
+    {
+        return Income::query()
+            ->forUser($userId)
+            ->where('is_recurring', true)
+            ->where('is_active', true)
+            ->where('is_spending_anchor', true)
+            ->whereNotNull('day_of_month')
+            ->orderBy('day_of_month')
+            ->get();
+    }
 }

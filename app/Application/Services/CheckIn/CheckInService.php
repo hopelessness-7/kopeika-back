@@ -54,7 +54,23 @@ final class CheckInService extends BaseService
 
     private function touchCheckIn(UserSetting $settings): void
     {
+        $today = now()->startOfDay();
+        $streak = (int) ($settings->check_in_streak_weeks ?? 0);
+
+        if ($settings->last_check_in_at === null) {
+            $streak = 1;
+        } else {
+            $daysSince = $settings->last_check_in_at->copy()->startOfDay()->diffInDays($today);
+
+            if ($daysSince >= 7 && $daysSince <= 14) {
+                $streak++;
+            } elseif ($daysSince > 14) {
+                $streak = 1;
+            }
+        }
+
         $settings->last_check_in_at = now();
+        $settings->check_in_streak_weeks = $streak;
         $settings->save();
     }
 }

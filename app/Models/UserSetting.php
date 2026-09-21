@@ -13,7 +13,9 @@ class UserSetting extends Model
     protected $fillable = [
         'user_id',
         'last_check_in_at',
+        'check_in_streak_weeks',
         'notification_mode',
+        'buffer_amount',
     ];
 
     protected function casts(): array
@@ -21,6 +23,7 @@ class UserSetting extends Model
         return [
             'last_check_in_at' => 'datetime',
             'notification_mode' => NotificationMode::class,
+            'buffer_amount' => 'decimal:2',
         ];
     }
 }

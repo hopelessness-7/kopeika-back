@@ -3,27 +3,25 @@
 namespace App\Application\Services\Dashboard;
 
 use App\Application\Auth\CurrentUserResolver;
-use App\Application\Finance\AnchorDateCalculator;
 use App\Application\Finance\CashflowForecast;
 use App\Application\Finance\DebtPayoffCalculator;
+use App\Application\Finance\GoalSavingsPlanner;
+use App\Application\Finance\IncomeAnchorBuilder;
+use App\Application\Finance\ObligationProgress;
 use App\Application\Finance\ObligationSchedule;
-use App\Application\Finance\SafeToSpendCalculator;
 use App\Application\Finance\ZoneResolver;
 use App\Application\Services\BaseService;
 use App\Application\Support\Money;
-use App\Application\Finance\ObligationProgress;
 use App\Domain\Contracts\Repositories\BalanceSnapshotRepositoryInterface;
+use App\Domain\Contracts\Repositories\GoalRepositoryInterface;
 use App\Domain\Contracts\Repositories\IncomeRepositoryInterface;
 use App\Domain\Contracts\Repositories\ObligationPaymentRepositoryInterface;
 use App\Domain\Contracts\Repositories\ObligationRepositoryInterface;
-use App\Domain\Contracts\Repositories\ReconciliationSettingsRepositoryInterface;
 use App\Domain\Contracts\Repositories\SavingRepositoryInterface;
 use App\Domain\Contracts\Repositories\UserSettingsRepositoryInterface;
+use App\Models\Goal;
 use App\Models\Income;
 use App\Models\Saving;
-use App\Domain\Enums\ImportIntervalDays;
-use App\Domain\Enums\PrimaryAnchor;
-use App\Models\ReconciliationSetting;
 use App\Models\UserSetting;
 use Carbon\CarbonInterface;
 
@@ -32,15 +30,15 @@ final class DashboardService extends BaseService
     public function __construct(
         CurrentUserResolver $currentUser,
         private readonly UserSettingsRepositoryInterface $settings,
-        private readonly ReconciliationSettingsRepositoryInterface $reconciliationSettings,
         private readonly BalanceSnapshotRepositoryInterface $balances,
         private readonly ObligationRepositoryInterface $obligations,
         private readonly ObligationPaymentRepositoryInterface $obligationPayments,
         private readonly IncomeRepositoryInterface $incomes,
         private readonly SavingRepositoryInterface $savings,
-        private readonly AnchorDateCalculator $anchorDates,
+        private readonly GoalRepositoryInterface $goals,
         private readonly ObligationSchedule $obligationSchedule,
-        private readonly SafeToSpendCalculator $safeToSpend,
+        private readonly IncomeAnchorBuilder $incomeAnchors,
+        private readonly GoalSavingsPlanner $goalPlanner,
         private readonly ZoneResolver $zoneResolver,
         private readonly CashflowForecast $forecast,
         private readonly DebtPayoffCalculator $debtPayoff,
@@ -53,7 +51,6 @@ final class DashboardService extends BaseService
         $userId ??= $this->currentUserId();
         $today = now()->startOfDay();
         $userSettings = $this->settings->findOrCreateForUser($userId);
-        $reconciliation = $this->reconciliationSettings->findOrCreateForUser($userId);
         $balanceSnapshot = $this->balances->latestForUser($userId);
         $balance = $balanceSnapshot !== null
             ? Money::normalize((string) $balanceSnapshot->amount)
@@ -61,18 +58,28 @@ final class DashboardService extends BaseService
         $obligations = $this->obligations->listActiveForUser($userId);
         $paidDueDates = $this->obligationPayments->paidDueDateKeysByObligationForUser($userId);
 
-        $salaryAnchor = $this->buildSalaryAnchor($reconciliation, $obligations, $balance, $today, $paidDueDates);
-        $importAnchor = $this->buildImportAnchor($reconciliation, $obligations, $balance, $today, $paidDueDates);
-        $primaryKey = $this->resolvePrimaryAnchorKey($reconciliation, $salaryAnchor, $importAnchor);
+        $buffer = $userSettings->buffer_amount !== null
+            ? Money::normalize((string) $userSettings->buffer_amount)
+            : null;
 
-        $primaryDailyLimit = $primaryKey === 'salary'
-            ? ($salaryAnchor['daily_limit'] ?? 0)
-            : ($importAnchor['daily_limit'] ?? 0);
-
-        $freeAfterObligations = $this->freeForAnchor(
-            $primaryKey === 'salary' ? $salaryAnchor : $importAnchor,
+        $anchorIncomes = $this->incomes->listSpendingAnchorsForUser($userId);
+        $anchorResult = $this->incomeAnchors->build(
+            $anchorIncomes,
+            $obligations,
             $balance,
+            $today,
+            $paidDueDates,
+            $buffer,
         );
+
+        $primaryAnchor = $anchorResult['primary'];
+        $primaryDailyLimit = $primaryAnchor !== null
+            ? ($primaryAnchor['daily_limit'] ?? 0)
+            : 0;
+
+        $freeAfterObligations = $primaryAnchor !== null && isset($primaryAnchor['_free'])
+            ? $primaryAnchor['_free']
+            : $balance;
 
         $nextPayment = $this->obligationSchedule->findNextUnpaid($obligations, $today, $paidDueDates);
         $nextObligation = $this->formatNextObligation($nextPayment, $balance, $today, $paidDueDates);
@@ -85,16 +92,29 @@ final class DashboardService extends BaseService
             $today,
         );
 
-        $importDueAt = isset($importAnchor['next_due_at'])
-            ? \Carbon\Carbon::parse($importAnchor['next_due_at'])->startOfDay()
+        $primaryHorizon = $primaryAnchor !== null
+            ? ['next_date' => $primaryAnchor['next_date']]
             : null;
 
-        if ($salaryAnchor !== null) {
-            unset($salaryAnchor['_free']);
-        }
-        unset($importAnchor['_free']);
+        $forecast = $this->buildForecast(
+            $userId,
+            $obligations,
+            $balance,
+            $today,
+            $primaryHorizon,
+            $paidDueDates,
+        );
 
-        $forecast = $this->buildForecast($userId, $obligations, $balance, $today, $salaryAnchor, $importAnchor, $paidDueDates);
+        $obligationsUntilPrimary = '0.00';
+        if ($primaryAnchor !== null) {
+            $anchorDate = \Carbon\Carbon::parse($primaryAnchor['next_date']);
+            $obligationsUntilPrimary = $this->obligationSchedule->totalDueUntil(
+                $obligations,
+                $anchorDate,
+                $today,
+                $paidDueDates,
+            );
+        }
 
         return [
             'balance' => Money::toApiNumber($balance),
@@ -104,25 +124,23 @@ final class DashboardService extends BaseService
             'zone' => $zone->value,
             'free_after_obligations' => Money::toApiNumber($freeAfterObligations),
             'anchors' => [
-                'primary' => $primaryKey,
-                'salary' => $salaryAnchor,
-                'import' => $importAnchor,
+                'primary_income_id' => $primaryAnchor['income_id'] ?? null,
+                'items' => $anchorResult['items'],
             ],
             'primary_daily_limit' => $primaryDailyLimit,
             'next_obligation' => $nextObligation,
-            'obligations_until_salary_total' => Money::toApiNumber(
-                $salaryAnchor !== null
-                    ? $this->obligationsTotalForAnchor($obligations, $reconciliation, 'salary', $today, $paidDueDates)
-                    : '0.00',
-            ),
+            'obligations_until_primary_anchor_total' => Money::toApiNumber($obligationsUntilPrimary),
             'forecast' => $forecast,
+            'goals' => $this->buildGoalsSection(
+                $userId,
+                $freeAfterObligations,
+                $primaryAnchor['days_remaining'] ?? null,
+            ),
             'check_in_due' => $this->isCheckInDue($userSettings, $today),
-            'import_due' => $importDueAt !== null && $today->diffInDays($importDueAt, false) <= 1 && $today->lte($importDueAt),
-            'import_overdue' => $importDueAt !== null && $today->gt($importDueAt),
             'streak' => [
-                'import_on_time' => 0,
-                'check_in_weeks' => 0,
+                'check_in_weeks' => (int) ($userSettings->check_in_streak_weeks ?? 0),
             ],
+            'notification_mode' => $userSettings->notification_mode->value,
         ];
     }
 
@@ -131,17 +149,16 @@ final class DashboardService extends BaseService
         $obligations,
         string $balance,
         CarbonInterface $today,
-        ?array $salaryAnchor,
-        array $importAnchor,
+        ?array $primaryHorizon,
         array $paidDueDates,
     ): array {
         $oneOff = $this->incomes->listForUser($userId);
         $recurring = $this->incomes->listRecurringActiveForUser($userId);
 
         $horizonEnd = $today->copy()->addDays(60);
-        if ($salaryAnchor !== null) {
-            $salaryDate = \Carbon\Carbon::parse($salaryAnchor['next_date']);
-            $horizonEnd = $salaryDate->gt($horizonEnd) ? $salaryDate : $horizonEnd;
+        if ($primaryHorizon !== null) {
+            $anchorDate = \Carbon\Carbon::parse($primaryHorizon['next_date']);
+            $horizonEnd = $anchorDate->gt($horizonEnd) ? $anchorDate : $horizonEnd;
         }
 
         $projection = $this->forecast->project(
@@ -186,9 +203,6 @@ final class DashboardService extends BaseService
         ];
     }
 
-    /**
-     * Оценка «когда долг закроется» с учётом ежемесячной капитализации процентов.
-     */
     private function buildDebtPayoff($obligations): array
     {
         $debtTypes = ['loan', 'installment', 'personal_debt'];
@@ -219,7 +233,7 @@ final class DashboardService extends BaseService
 
             $estimate = $this->debtPayoff->calculate($remaining, $payment, $rate);
 
-            $entry = [
+            $result[] = [
                 'obligation_id' => $obligation->id,
                 'title' => $obligation->title,
                 'type' => $obligation->type->value,
@@ -241,95 +255,9 @@ final class DashboardService extends BaseService
                     ? Money::toApiNumber($estimate->minPayment)
                     : null,
             ];
-
-            $result[] = $entry;
         }
 
         return $result;
-    }
-
-    private function buildSalaryAnchor(
-        ReconciliationSetting $settings,
-        $obligations,
-        string $balance,
-        CarbonInterface $today,
-        array $paidDueDates,
-    ): ?array {
-        if ($settings->salary_day_of_month === null) {
-            return null;
-        }
-
-        $anchorDate = $this->anchorDates->nextSalaryDate($settings->salary_day_of_month, $today);
-        $daysRemaining = $this->anchorDates->daysRemaining($anchorDate, $today);
-        $obligationsUntil = $this->obligationSchedule->totalDueUntil($obligations, $anchorDate, $today, $paidDueDates);
-        $limits = $this->safeToSpend->calculate($balance, $obligationsUntil, $daysRemaining);
-
-        return [
-            'day_of_month' => $settings->salary_day_of_month,
-            'next_date' => $anchorDate->toDateString(),
-            'days_remaining' => $daysRemaining,
-            'daily_limit' => Money::toApiNumber($limits['daily_limit']),
-            '_free' => $limits['free'],
-        ];
-    }
-
-    private function buildImportAnchor(
-        ReconciliationSetting $settings,
-        $obligations,
-        string $balance,
-        CarbonInterface $today,
-        array $paidDueDates,
-    ): array {
-        $interval = ImportIntervalDays::fromDays($settings->import_interval_days);
-        $anchorDate = $this->anchorDates->nextImportDue($settings->last_import_at, $interval, $today);
-        $daysRemaining = $this->anchorDates->daysRemaining($anchorDate, $today);
-        $obligationsUntil = $this->obligationSchedule->totalDueUntil($obligations, $anchorDate, $today, $paidDueDates);
-        $limits = $this->safeToSpend->calculate($balance, $obligationsUntil, $daysRemaining);
-
-        return [
-            'interval_days' => $interval->value,
-            'last_import_at' => $settings->last_import_at?->toIso8601String(),
-            'next_due_at' => $anchorDate->toDateString(),
-            'days_remaining' => $daysRemaining,
-            'daily_limit' => Money::toApiNumber($limits['daily_limit']),
-            '_free' => $limits['free'],
-        ];
-    }
-
-    private function resolvePrimaryAnchorKey(
-        ReconciliationSetting $settings,
-        ?array $salaryAnchor,
-        array $importAnchor,
-    ): string {
-        $key = match ($settings->primary_anchor) {
-            PrimaryAnchor::Salary => 'salary',
-            PrimaryAnchor::Import => 'import',
-            PrimaryAnchor::Auto => $this->pickStricterAnchor($salaryAnchor, $importAnchor),
-        };
-
-        if ($key === 'salary' && $salaryAnchor === null) {
-            return 'import';
-        }
-
-        return $key;
-    }
-
-    private function pickStricterAnchor(?array $salaryAnchor, array $importAnchor): string
-    {
-        if ($salaryAnchor === null) {
-            return 'import';
-        }
-
-        return $salaryAnchor['days_remaining'] <= $importAnchor['days_remaining'] ? 'salary' : 'import';
-    }
-
-    private function freeForAnchor(?array $anchor, string $balance): string
-    {
-        if ($anchor !== null && isset($anchor['_free'])) {
-            return $anchor['_free'];
-        }
-
-        return $balance;
     }
 
     private function formatNextObligation(
@@ -386,25 +314,6 @@ final class DashboardService extends BaseService
         ];
     }
 
-    private function obligationsTotalForAnchor(
-        $obligations,
-        ReconciliationSetting $settings,
-        string $anchorKey,
-        CarbonInterface $today,
-        array $paidDueDates,
-    ): string {
-        if ($anchorKey === 'salary' && $settings->salary_day_of_month !== null) {
-            $anchorDate = $this->anchorDates->nextSalaryDate($settings->salary_day_of_month, $today);
-
-            return $this->obligationSchedule->totalDueUntil($obligations, $anchorDate, $today, $paidDueDates);
-        }
-
-        $interval = ImportIntervalDays::fromDays($settings->import_interval_days);
-        $anchorDate = $this->anchorDates->nextImportDue($settings->last_import_at, $interval, $today);
-
-        return $this->obligationSchedule->totalDueUntil($obligations, $anchorDate, $today, $paidDueDates);
-    }
-
     private function isCheckInDue(UserSetting $settings, CarbonInterface $today): bool
     {
         if ($settings->last_check_in_at === null) {
@@ -446,6 +355,33 @@ final class DashboardService extends BaseService
                 'last_received_at' => $lastIncome?->received_at->toDateString(),
             ],
             'recent' => $recent,
+        ];
+    }
+
+    private function buildGoalsSection(int $userId, string $freeAfterObligations, ?int $daysRemaining): array
+    {
+        $activeGoals = $this->goals->listActiveForUser($userId);
+
+        $items = $activeGoals
+            ->take(2)
+            ->map(function (Goal $goal) use ($freeAfterObligations, $daysRemaining) {
+                $plan = $this->goalPlanner->plan($goal, $freeAfterObligations, $daysRemaining);
+
+                return [
+                    'id' => $goal->id,
+                    'title' => $goal->title,
+                    'target_amount' => Money::toApiNumber((string) $goal->target_amount),
+                    'saved_amount' => Money::toApiNumber((string) $goal->saved_amount),
+                    'target_date' => $goal->target_date?->toDateString(),
+                    'plan' => $plan,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'active_count' => $activeGoals->count(),
+            'items' => $items,
         ];
     }
 

@@ -18,6 +18,7 @@ class Income extends Model
         'is_recurring',
         'day_of_month',
         'is_active',
+        'is_spending_anchor',
     ];
 
     protected function casts(): array
@@ -28,6 +29,7 @@ class Income extends Model
             'is_recurring' => 'boolean',
             'day_of_month' => 'integer',
             'is_active' => 'boolean',
+            'is_spending_anchor' => 'boolean',
         ];
     }
 }

@@ -9,6 +9,5 @@ enum BalanceSnapshotSource: string
     use EnumValues;
 
     case Manual = 'manual';
-    case Import = 'import';
     case CheckIn = 'check_in';
 }

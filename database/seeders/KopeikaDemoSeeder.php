@@ -3,24 +3,22 @@
 namespace Database\Seeders;
 
 use App\Domain\Contracts\Repositories\BalanceSnapshotRepositoryInterface;
+use App\Domain\Contracts\Repositories\GoalRepositoryInterface;
 use App\Domain\Contracts\Repositories\IncomeRepositoryInterface;
 use App\Domain\Contracts\Repositories\ObligationPaymentRepositoryInterface;
 use App\Domain\Contracts\Repositories\ObligationRepositoryInterface;
-use App\Domain\Contracts\Repositories\ReconciliationSettingsRepositoryInterface;
 use App\Domain\Contracts\Repositories\UserRepositoryInterface;
 use App\Domain\Contracts\Repositories\UserSettingsRepositoryInterface;
 use App\Domain\DemoUser;
 use App\Domain\Enums\BalanceSnapshotSource;
-use App\Domain\Enums\ImportIntervalDays;
 use App\Domain\Enums\NotificationMode;
 use App\Domain\Enums\ObligationPaymentStatus;
 use App\Domain\Enums\ObligationType;
-use App\Domain\Enums\PrimaryAnchor;
 use App\DTO\Balance\BalanceSnapshotData;
+use App\DTO\Goal\GoalData;
 use App\DTO\Income\IncomeData;
 use App\DTO\Obligation\ObligationData;
 use App\DTO\Obligation\ObligationPaymentData;
-use App\DTO\Reconciliation\ReconciliationSettingsData;
 use App\DTO\Saving\SavingData;
 use App\DTO\Settings\UserSettingsData;
 use App\Models\User;
@@ -33,7 +31,6 @@ class KopeikaDemoSeeder extends Seeder
     {
         $userRepository = app(UserRepositoryInterface::class);
         $settingsRepository = app(UserSettingsRepositoryInterface::class);
-        $reconciliationRepository = app(ReconciliationSettingsRepositoryInterface::class);
         $obligationRepository = app(ObligationRepositoryInterface::class);
         $incomeRepository = app(IncomeRepositoryInterface::class);
         $balanceRepository = app(BalanceSnapshotRepositoryInterface::class);
@@ -44,15 +41,8 @@ class KopeikaDemoSeeder extends Seeder
         $settingsRepository->upsert(new UserSettingsData(
             userId: $user->id,
             lastCheckInAt: now()->subDays(3),
+            checkInStreakWeeks: 2,
             notificationMode: NotificationMode::Normal,
-        ));
-
-        $reconciliationRepository->upsert(new ReconciliationSettingsData(
-            userId: $user->id,
-            importIntervalDays: ImportIntervalDays::TenDays,
-            lastImportAt: now()->subDays(6),
-            primaryAnchor: PrimaryAnchor::Auto,
-            salaryDayOfMonth: 25,
         ));
 
         if ($incomeRepository->listForUser($user->id)->isNotEmpty()) {
@@ -127,6 +117,7 @@ class KopeikaDemoSeeder extends Seeder
             description: 'Основной доход',
             isRecurring: true,
             dayOfMonth: 25,
+            isSpendingAnchor: true,
         ));
 
         $incomeRepository->create(new IncomeData(
@@ -136,6 +127,7 @@ class KopeikaDemoSeeder extends Seeder
             receivedAt: now()->subDays(20),
             isRecurring: true,
             dayOfMonth: 10,
+            isSpendingAnchor: true,
         ));
 
         $incomeRepository->create(new IncomeData(
@@ -152,6 +144,14 @@ class KopeikaDemoSeeder extends Seeder
             bank: 'Сбер',
             balance: '150000.00',
             monthlyContribution: '10000.00',
+        ));
+
+        app(GoalRepositoryInterface::class)->create(new GoalData(
+            userId: $user->id,
+            title: 'Ноутбук',
+            targetAmount: '120000.00',
+            savedAmount: '35000.00',
+            targetDate: now()->addMonths(8),
         ));
 
         $balanceRepository->record(new BalanceSnapshotData(

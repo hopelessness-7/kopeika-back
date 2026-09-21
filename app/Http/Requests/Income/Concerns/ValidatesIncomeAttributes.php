@@ -14,6 +14,7 @@ trait ValidatesIncomeAttributes
             'is_recurring' => ['sometimes', 'boolean'],
             'day_of_month' => ['nullable', 'integer', 'between:1,31', 'required_if:is_recurring,true'],
             'is_active' => ['sometimes', 'boolean'],
+            'is_spending_anchor' => ['sometimes', 'boolean'],
         ];
     }
 }

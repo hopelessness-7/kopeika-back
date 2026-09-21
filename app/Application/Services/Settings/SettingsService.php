@@ -32,6 +32,10 @@ final class SettingsService extends BaseService
         return [
             'notification_mode' => $settings->notification_mode->value,
             'last_check_in_at' => $settings->last_check_in_at?->toIso8601String(),
+            'check_in_streak_weeks' => (int) ($settings->check_in_streak_weeks ?? 0),
+            'buffer_amount' => $settings->buffer_amount !== null
+                ? (float) $settings->buffer_amount
+                : null,
         ];
     }
 }

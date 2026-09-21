@@ -38,11 +38,6 @@ class User extends Authenticatable
         return $this->hasOne(UserSetting::class);
     }
 
-    public function reconciliationSettings(): HasOne
-    {
-        return $this->hasOne(ReconciliationSetting::class);
-    }
-
     public function incomes(): HasMany
     {
         return $this->hasMany(Income::class);
@@ -63,18 +58,8 @@ class User extends Authenticatable
         return $this->hasMany(BalanceSnapshot::class);
     }
 
-    public function bankImports(): HasMany
-    {
-        return $this->hasMany(BankImport::class);
-    }
-
     public function quickExpenses(): HasMany
     {
         return $this->hasMany(QuickExpense::class);
-    }
-
-    public function spendPeriodSummaries(): HasMany
-    {
-        return $this->hasMany(SpendPeriodSummary::class);
     }
 }

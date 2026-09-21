@@ -20,6 +20,7 @@ class IncomeResource extends JsonResource
             'is_recurring' => (bool) $this->is_recurring,
             'day_of_month' => $this->day_of_month,
             'is_active' => (bool) $this->is_active,
+            'is_spending_anchor' => (bool) $this->is_spending_anchor,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

@@ -19,4 +19,9 @@ interface IncomeRepositoryInterface extends UserOwnedRepositoryInterface
      * @return Collection<int, Income>
      */
     public function listRecurringActiveForUser(int $userId): Collection;
+
+    /**
+     * @return Collection<int, Income>
+     */
+    public function listSpendingAnchorsForUser(int $userId): Collection;
 }
