@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Application\Finance\ObligationSchedule;
+use App\Application\Services\Push\WebPushSenderService;
 use App\Domain\Contracts\Repositories\ObligationRepositoryInterface;
 use App\Domain\Enums\NotificationMode;
 use App\Models\PushSubscription;
@@ -16,10 +17,8 @@ class SendRemindersCommand extends Command
 
     protected $description = 'Send push reminders for payments, check-ins, and zone warnings';
 
-    public function handle(
-        ObligationRepositoryInterface $obligations,
-        ObligationSchedule $schedule,
-    ): int {
+    public function handle(ObligationRepositoryInterface $obligations, ObligationSchedule $schedule): int
+    {
         $today = now()->startOfDay();
         $sent = 0;
 
@@ -83,14 +82,15 @@ class SendRemindersCommand extends Command
             return false;
         }
 
+        $ok = false;
+
         foreach ($subscriptions as $subscription) {
-            Log::info('push.reminder', [
-                'user_id' => $userId,
-                'endpoint' => $subscription->endpoint,
-                'body' => $body,
-            ]);
+            if (app(WebPushSenderService::class)->send($subscription, config('app.name', 'Kopeika'), $body)) {
+                $ok = true;
+            }
+
         }
 
-        return true;
+        return $ok;
     }
 }
