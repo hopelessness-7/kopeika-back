@@ -49,11 +49,13 @@ class KopeikaDemoSeeder extends Seeder
             return;
         }
 
+        // Платёж должен быть > остаток * (ставка/12), иначе never_closes.
+        // 2_500_000 @ 12% → ~25_000 %%/мес; 30_000 закрывает долг.
         $mortgage = $obligationRepository->create(new ObligationData(
             userId: $user->id,
             title: 'Ипотека',
             type: ObligationType::Loan,
-            paymentAmount: '24100.00',
+            paymentAmount: '30000.00',
             paymentDay: 5,
             remainingAmount: '2500000.00',
             totalAmount: '3000000.00',
@@ -91,7 +93,7 @@ class KopeikaDemoSeeder extends Seeder
             $paymentRepository->create(new ObligationPaymentData(
                 userId: $user->id,
                 obligationId: $mortgage->id,
-                amount: '24100.00',
+                amount: '30000.00',
                 dueDate: now()->subMonthsNoOverflow($monthsAgo)->day(5),
                 status: ObligationPaymentStatus::Paid,
                 paidAt: now()->subMonthsNoOverflow($monthsAgo)->day(5),

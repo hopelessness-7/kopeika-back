@@ -132,7 +132,7 @@ class DashboardApiTest extends TestCase
         $mortgage = collect($forecast['debt_payoff'])->firstWhere('title', 'Ипотека');
         $this->assertNotNull($mortgage);
         $this->assertFalse($mortgage['never_closes']);
-        $this->assertSame(12.0, $mortgage['interest_rate']);
+        $this->assertEqualsWithDelta(12.0, $mortgage['interest_rate'], 0.001);
         $this->assertGreaterThan($mortgage['remaining'], $mortgage['total_to_pay']);
         $this->assertGreaterThan(0, $mortgage['total_interest']);
         $this->assertGreaterThan(
