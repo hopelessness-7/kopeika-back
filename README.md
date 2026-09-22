@@ -1,6 +1,12 @@
 # kopeika-back
 
-Бэкенд Kopeika — Laravel 13 + Sail + nginx + PHP-FPM 8.5 + MariaDB 11 + Redis + Meilisearch + Telescope + Scout.
+Бэкенд **Kopeika** — API личного финансового планирования: safe-to-spend, обязательства и платежи, доходы-якоря, календарь, check-in, прогноз, цели, web-push напоминания.
+
+Стек: Laravel 13 + Sail + nginx + PHP-FPM 8.5 + MariaDB 11 + Redis + Meilisearch + Telescope + Scout.
+
+Фронт: [kopeika-front](https://github.com/hopelessness-7/kopeika-front).
+
+Лицензия: [MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 ## Стек
 
