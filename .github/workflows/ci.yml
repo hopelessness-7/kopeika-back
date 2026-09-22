@@ -72,10 +72,16 @@ jobs:
           echo "MariaDB not ready" >&2
           exit 1
 
+      # MYSQL_USER (sail) имеет права только на MYSQL_DATABASE (kopeika).
+      # phpunit.xml задаёт DB_DATABASE=testing — создаём БД и GRANT от root.
       - name: Create testing DB
         run: |
-          mysqladmin -h127.0.0.1 -usail -ppassword create testing || true
-          # phpunit.xml задаёт DB_DATABASE=testing
+          php -r '
+            $pdo = new PDO("mysql:host=127.0.0.1;port=3306", "root", "root");
+            $pdo->exec("CREATE DATABASE IF NOT EXISTS testing");
+            $pdo->exec("GRANT ALL PRIVILEGES ON testing.* TO '\''sail'\''@'\''%'\''");
+            $pdo->exec("FLUSH PRIVILEGES");
+          '
 
       - name: Migrate
         run: php artisan migrate --force
