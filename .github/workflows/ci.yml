@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: kopeika
+          MYSQL_USER: sail
+          MYSQL_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_mysql, redis, openssl, tokenizer, xml, ctype, json, bcmath
+          coverage: none
+
+      - name: Install Composer deps
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare .env for CI
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          # В CI сервисы на localhost (не hostname mariadb/redis из Sail)
+          sed -i 's/^DB_HOST=.*/DB_HOST=127.0.0.1/' .env
+          sed -i 's/^REDIS_HOST=.*/REDIS_HOST=127.0.0.1/' .env
+          sed -i 's/^MAIL_MAILER=.*/MAIL_MAILER=array/' .env
+          # VAPID не нужны для большинства тестов; пустые ок или заглушки:
+          grep -q '^VAPID_SUBJECT=' .env || echo 'VAPID_SUBJECT=mailto:ci@example.com' >> .env
+          grep -q '^VAPID_PUBLIC_KEY=' .env || echo 'VAPID_PUBLIC_KEY=' >> .env
+          grep -q '^VAPID_PRIVATE_KEY=' .env || echo 'VAPID_PRIVATE_KEY=' >> .env
+
+      - name: Wait for MariaDB
+        run: |
+          for i in $(seq 1 30); do
+            if php -r 'new PDO("mysql:host=127.0.0.1;port=3306", "sail", "password");'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MariaDB not ready" >&2
+          exit 1
+
+      - name: Create testing DB
+        run: |
+          mysqladmin -h127.0.0.1 -usail -ppassword create testing || true
+          # phpunit.xml задаёт DB_DATABASE=testing
+
+      - name: Migrate
+        run: php artisan migrate --force
+        env:
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: kopeika
+          DB_USERNAME: sail
+          DB_PASSWORD: password
+
+      - name: Run tests
+        run: php artisan test
+        env:
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: sail
+          DB_PASSWORD: password
+          REDIS_HOST: 127.0.0.1
